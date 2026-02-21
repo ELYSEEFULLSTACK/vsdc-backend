@@ -4,23 +4,89 @@ const cors = require("cors");
 const admin = require("firebase-admin");
 const axios = require("axios"); // For making calls to actual VSDC/EBM server
 
-/*
-IMPORTANT
-Put your Firebase Admin SDK json here
-Example:
-C:/Users/user1/vsdc-backend/serviceAccountKey.json
-*/
-const serviceAccount = require("./serviceAccountKey.json");
+// ===============================
+// ADD THESE MISSING IMPORTS
+// ===============================
+const { getDocs, query, where, orderBy, limit } = require("firebase/firestore");
 
-admin.initializeApp({
-  credential: admin.credential.cert(serviceAccount)
-});
+// ===============================
+// Firebase Admin SDK Setup - FIXED FOR RAILWAY
+// ===============================
+let serviceAccount;
+
+// Check if running on Railway (with environment variable)
+if (process.env.FIREBASE_SERVICE_ACCOUNT) {
+  // Parse the JSON string from environment variable
+  try {
+    serviceAccount = JSON.parse(process.env.FIREBASE_SERVICE_ACCOUNT);
+    console.log("✅ Firebase: Using service account from environment variable");
+  } catch (e) {
+    console.error("❌ Firebase: Failed to parse FIREBASE_SERVICE_ACCOUNT environment variable");
+    console.error("Error details:", e.message);
+    throw e;
+  }
+} else {
+  // Local development - use the file
+  try {
+    serviceAccount = require("./serviceAccountKey.json");
+    console.log("✅ Firebase: Using local serviceAccountKey.json file");
+  } catch (e) {
+    console.error("❌ Firebase: serviceAccountKey.json not found");
+    console.error("Please set FIREBASE_SERVICE_ACCOUNT environment variable or add serviceAccountKey.json file");
+    throw e;
+  }
+}
+
+// Initialize Firebase Admin
+try {
+  admin.initializeApp({
+    credential: admin.credential.cert(serviceAccount)
+  });
+  console.log("✅ Firebase Admin initialized successfully");
+} catch (e) {
+  console.error("❌ Firebase Admin initialization failed:", e.message);
+  throw e;
+}
 
 const db = admin.firestore();
 
 const app = express();
 
-app.use(cors());
+// ===============================
+// CORS Configuration - FIXED FOR RAILWAY
+// ===============================
+const allowedOrigins = [
+  'http://localhost:3000',                    // Local React app
+  'https://your-frontend.vercel.app',          // Replace with your frontend URL
+  'https://your-frontend.netlify.app',         // Replace with your frontend URL
+  'https://*.railway.app',                      // Allow Railway domains
+  'http://localhost:5000'                       // Local backend
+];
+
+app.use(cors({
+  origin: function(origin, callback) {
+    // Allow requests with no origin (like mobile apps, curl)
+    if (!origin) return callback(null, true);
+    
+    // Check if origin is allowed
+    const isAllowed = allowedOrigins.some(allowed => {
+      if (allowed.includes('*')) {
+        const pattern = allowed.replace('*', '.*');
+        return new RegExp(pattern).test(origin);
+      }
+      return allowed === origin;
+    });
+    
+    if (isAllowed) {
+      callback(null, true);
+    } else {
+      console.log('CORS blocked origin:', origin);
+      callback(new Error('Not allowed by CORS'));
+    }
+  },
+  credentials: true
+}));
+
 app.use(express.json());
 
 // ===============================
@@ -29,20 +95,23 @@ app.use(express.json());
 const VSDC_CONFIG = {
   // Test environment (sandbox)
   test: {
-    ebmApiUrl: process.env.RRA_TEST_URL,
+    ebmApiUrl: process.env.RRA_TEST_URL || "https://sedsandbox.rra.gov.rw",
     vsdcRequestForm: "https://myrrrrest.rra.gov.rw/"
   },
   // Production environment
   production: {
-    ebmApiUrl: process.env.RRA_PRODUCTION_URL,
+    ebmApiUrl: process.env.RRA_PRODUCTION_URL || "https://api-ebm.rra.gov.rw",
     vsdcRequestForm: "https://myrrra.rra.gov.rw"
   },
   // Current environment (change to 'production' for live)
-  currentEnv: process.env.RRA_ENVIRONMENT,
+  currentEnv: process.env.RRA_ENVIRONMENT || "test",
   
   // Default branch ID (00 = head office)
   defaultBhfId: process.env.DEFAULT_BHF_ID || "00"
 };
+
+console.log(`🌍 Environment: ${VSDC_CONFIG.currentEnv}`);
+console.log(`🔗 EBM API URL: ${VSDC_CONFIG[VSDC_CONFIG.currentEnv].ebmApiUrl}`);
 
 // ===============================
 // Code Definitions from VSDC Spec (Section 4)
@@ -1270,13 +1339,13 @@ app.get("/api/health", (req, res) => {
 });
 
 // ===============================
-// Start server
+// Start server - FIXED FOR RAILWAY
 // ===============================
 const PORT = process.env.PORT || 5000;
-app.listen(PORT, () => {
+app.listen(PORT, '0.0.0.0', () => {
   console.log("=".repeat(50));
-  console.log(`VSDC Backend Server running on port ${PORT}`);
-  console.log(`Environment: ${VSDC_CONFIG.currentEnv}`);
-  console.log(`EBM API URL: ${VSDC_CONFIG[VSDC_CONFIG.currentEnv].ebmApiUrl}`);
+  console.log(`✅ VSDC Backend Server running on port ${PORT}`);
+  console.log(`🌍 Environment: ${VSDC_CONFIG.currentEnv}`);
+  console.log(`🔗 EBM API URL: ${VSDC_CONFIG[VSDC_CONFIG.currentEnv].ebmApiUrl}`);
   console.log("=".repeat(50));
 });
