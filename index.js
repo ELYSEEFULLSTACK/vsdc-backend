@@ -7,7 +7,7 @@ const axios = require("axios"); // For making calls to actual VSDC/EBM server
 // ===============================
 // ADD THESE MISSING IMPORTS
 // ===============================
-const { getDocs, query, where, orderBy, limit } = require("firebase/firestore");
+const { getDocs, query, where, orderBy, limit } = require("firebase-admin/firestore");
 
 // ===============================
 // Firebase Admin SDK Setup - FIXED FOR RAILWAY
