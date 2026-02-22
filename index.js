@@ -60,7 +60,8 @@ const allowedOrigins = [
   'https://your-frontend.vercel.app',          // Replace with your frontend URL
   'https://your-frontend.netlify.app',         // Replace with your frontend URL
   'https://*.railway.app',
-  'https://schoolfeedingsystem.web.app/',                      // Allow Railway domains
+  'https://schoolfeedingsystem.web.app/',
+  'https://schoolfeedingsystem.firebaseapp.com',                    
   'http://localhost:5000'                       // Local backend
 ];
 
@@ -89,6 +90,11 @@ app.use(cors({
 }));
 
 app.use(express.json());
+
+// ===============================
+// TEST CORS ENDPOINT - REMOVE LATER
+// ===============================
+app.options('/api/vsdc/trnsSales/saveSales', cors());
 
 // ===============================
 // VSDC Configuration
