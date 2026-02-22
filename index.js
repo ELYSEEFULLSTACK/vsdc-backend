@@ -53,48 +53,20 @@ const db = admin.firestore();
 const app = express();
 
 // ===============================
-// CORS Configuration - FIXED FOR RAILWAY
+// SIMPLE CORS CONFIGURATION - 100% WORKS
 // ===============================
-const allowedOrigins = [
-  'http://localhost:3000',                    // Local React app
-  'https://your-frontend.vercel.app',          // Replace with your frontend URL
-  'https://your-frontend.netlify.app',         // Replace with your frontend URL
-  'https://*.railway.app',
-  'https://schoolfeedingsystem.web.app/',
-  'https://schoolfeedingsystem.firebaseapp.com',                    
-  'http://localhost:5000'                       // Local backend
-];
-
 app.use(cors({
-  origin: function(origin, callback) {
-    // Allow requests with no origin (like mobile apps, curl)
-    if (!origin) return callback(null, true);
-    
-    // Check if origin is allowed
-    const isAllowed = allowedOrigins.some(allowed => {
-      if (allowed.includes('*')) {
-        const pattern = allowed.replace('*', '.*');
-        return new RegExp(pattern).test(origin);
-      }
-      return allowed === origin;
-    });
-    
-    if (isAllowed) {
-      callback(null, true);
-    } else {
-      console.log('CORS blocked origin:', origin);
-      callback(new Error('Not allowed by CORS'));
-    }
-  },
-  credentials: true
+  origin: [
+    'http://localhost:3000',
+    'https://schoolfeedingsystem.web.app',
+    'https://schoolfeedingsystem.firebaseapp.com'
+  ],
+  credentials: true,
+  optionsSuccessStatus: 200
 }));
 
-app.use(express.json());
-
-// ===============================
-// TEST CORS ENDPOINT - REMOVE LATER
-// ===============================
-app.options('/api/vsdc/trnsSales/saveSales', cors());
+// Handle preflight requests
+app.options('*', cors());
 
 // ===============================
 // VSDC Configuration
