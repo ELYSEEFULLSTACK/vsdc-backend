@@ -59,7 +59,8 @@ const allowedOrigins = [
   'http://localhost:3000',                    // Local React app
   'https://your-frontend.vercel.app',          // Replace with your frontend URL
   'https://your-frontend.netlify.app',         // Replace with your frontend URL
-  'https://*.railway.app',                      // Allow Railway domains
+  'https://*.railway.app',
+  'https://schoolfeedingsystem.web.app/',                      // Allow Railway domains
   'http://localhost:5000'                       // Local backend
 ];
 
