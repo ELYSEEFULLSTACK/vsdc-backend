@@ -300,58 +300,24 @@ app.post("/api/vsdc/initializer/selectInitInfo", verifyFirebaseToken, async (req
       });
     }
     
-    // In production, this would call the actual VSDC/EBM API
-    // const vsdcResponse = await callVsdcApi("/initializer/selectInitInfo", "POST", req.body);
+    // Call the actual VSDC API
+    const vsdcResponse = await callVsdcApi("/initializer/selectInitInfo", "POST", req.body, req.headers.authorization?.split(" ")[1]);
     
-    // For now, return mock initialization response based on spec
-    const mockResponse = {
-      resultCd: "000",
-      resultMsg: "It is succeeded",
-      resultDt: new Date().toISOString().replace(/[-:]/g, "").slice(0, 14),
-      data: {
-        info: {
-          tin: tin,
-          taxprNm: "Test VSDC User",
-          bsnsActv: "School Feeding Program",
-          bhfId: bhfId,
-          bhfNm: bhfId === "00" ? "Headquarter" : `Branch ${bhfId}`,
-          bhfOpenDt: "20210101",
-          prvncNm: "KIGALI CITY",
-          dstrtNm: "GASABO",
-          sctrNm: "JALI",
-          locDesc: "KN 5 St.",
-          hqYn: bhfId === "00" ? "Y" : "N",
-          mgrNm: "School Manager",
-          mgrTelNo: "0780000000",
-          mgrEmail: "school@test.com",
-          sdcId: null,
-          mrcNo: null,
-          dvcId: `${tin}7006310`,
-          intrlKey: null,
-          signKey: null,
-          cmcKey: null,
-          lastPchsInvcNo: 0,
-          lastSaleRcptNo: 0,
-          lastInvcNo: null,
-          lastSaleInvcNo: 0,
-          lastTrainInvcNo: null,
-          lastProfrmInvcNo: null,
-          lastCopyInvcNo: null
-        }
-      }
-    };
-    
-    // Save initialization info to Firestore
-    const initRef = db.collection("vsdc_initializations").doc(tin);
-    await initRef.set({
-      tin,
-      bhfId,
-      dvcSrNo,
-      initializedAt: admin.firestore.FieldValue.serverTimestamp(),
-      response: mockResponse
-    }, { merge: true });
-    
-    return res.json(mockResponse);
+    if (vsdcResponse.success) {
+      // Save initialization info to Firestore
+      const initRef = db.collection("vsdc_initializations").doc(tin);
+      await initRef.set({
+        tin,
+        bhfId,
+        dvcSrNo,
+        initializedAt: admin.firestore.FieldValue.serverTimestamp(),
+        response: vsdcResponse.data
+      }, { merge: true });
+      
+      return res.json(vsdcResponse.data);
+    } else {
+      return res.status(vsdcResponse.status || 500).json(vsdcResponse.error);
+    }
     
   } catch (error) {
     console.error("Initialization error:", error);
@@ -370,94 +336,14 @@ app.post("/api/vsdc/code/selectCodes", verifyFirebaseToken, async (req, res) => 
   try {
     const { tin, bhfId, lastReqDt } = req.body;
     
-    // Mock response with all code classifications from spec
-    const mockResponse = {
-      resultCd: "000",
-      resultMsg: "It is succeeded",
-      resultDt: new Date().toISOString().replace(/[-:]/g, "").slice(0, 14),
-      data: {
-        cdsList: [
-          {
-            cdCls: "04",
-            cdClsNm: "TaxType",
-            cdClsDesc: "Tax Type Codes",
-            useYn: "Y",
-            userDfnNm1: "TaxRate",
-            userDfnNm2: null,
-            userDfnNm3: null,
-            dtList: [
-              { cd: "A", cdNm: "A-EX", cdDesc: "Tax Exempt", useYn: "Y", srtOrd: "1", userDfnCd1: "0", userDfnCd2: null, userDfnCd3: null },
-              { cd: "B", cdNm: "B-18.00%", cdDesc: "Standard Rate", useYn: "Y", srtOrd: "2", userDfnCd1: "18", userDfnCd2: null, userDfnCd3: null },
-              { cd: "C", cdNm: "C", cdDesc: "Zero Rated", useYn: "Y", srtOrd: "3", userDfnCd1: "0", userDfnCd2: null, userDfnCd3: null },
-              { cd: "D", cdNm: "D", cdDesc: "Other", useYn: "Y", srtOrd: "4", userDfnCd1: "0", userDfnCd2: null, userDfnCd3: null }
-            ]
-          },
-          {
-            cdCls: "10",
-            cdClsNm: "UnitOfQuantity",
-            cdClsDesc: "Quantity Unit Codes",
-            useYn: "Y",
-            userDfnNm1: null,
-            userDfnNm2: null,
-            userDfnNm3: null,
-            dtList: [
-              { cd: "KG", cdNm: "Kilogram", cdDesc: "Kilogram", useYn: "Y", srtOrd: "1", userDfnCd1: null, userDfnCd2: null, userDfnCd3: null },
-              { cd: "L", cdNm: "Litre", cdDesc: "Litre", useYn: "Y", srtOrd: "2", userDfnCd1: null, userDfnCd2: null, userDfnCd3: null },
-              { cd: "U", cdNm: "Pieces", cdDesc: "Pieces/Items", useYn: "Y", srtOrd: "3", userDfnCd1: null, userDfnCd2: null, userDfnCd3: null }
-            ]
-          },
-          {
-            cdCls: "17",
-            cdClsNm: "PackagingUnit",
-            cdClsDesc: "Packaging Unit Codes",
-            useYn: "Y",
-            userDfnNm1: null,
-            userDfnNm2: null,
-            userDfnNm3: null,
-            dtList: [
-              { cd: "AM", cdNm: "Ampoule", cdDesc: "Ampoule", useYn: "Y", srtOrd: "1", userDfnCd1: null, userDfnCd2: null, userDfnCd3: null },
-              { cd: "BA", cdNm: "Barrel", cdDesc: "Barrel", useYn: "Y", srtOrd: "2", userDfnCd1: null, userDfnCd2: null, userDfnCd3: null },
-              { cd: "BG", cdNm: "Bag", cdDesc: "Bag", useYn: "Y", srtOrd: "3", userDfnCd1: null, userDfnCd2: null, userDfnCd3: null },
-              { cd: "NT", cdNm: "Net", cdDesc: "Net", useYn: "Y", srtOrd: "4", userDfnCd1: null, userDfnCd2: null, userDfnCd3: null }
-            ]
-          },
-          {
-            cdCls: "24",
-            cdClsNm: "ProductType",
-            cdClsDesc: "Product Type Codes",
-            useYn: "Y",
-            userDfnNm1: null,
-            userDfnNm2: null,
-            userDfnNm3: null,
-            dtList: [
-              { cd: "1", cdNm: "Raw Material", cdDesc: "Raw Material", useYn: "Y", srtOrd: "1", userDfnCd1: null, userDfnCd2: null, userDfnCd3: null },
-              { cd: "2", cdNm: "Finished Product", cdDesc: "Finished Product", useYn: "Y", srtOrd: "2", userDfnCd1: null, userDfnCd2: null, userDfnCd3: null },
-              { cd: "3", cdNm: "Service", cdDesc: "Service without stock", useYn: "Y", srtOrd: "3", userDfnCd1: null, userDfnCd2: null, userDfnCd3: null }
-            ]
-          },
-          {
-            cdCls: "07",
-            cdClsNm: "PaymentMethod",
-            cdClsDesc: "Payment Method Codes",
-            useYn: "Y",
-            userDfnNm1: null,
-            userDfnNm2: null,
-            userDfnNm3: null,
-            dtList: [
-              { cd: "01", cdNm: "CASH", cdDesc: "CASH", useYn: "Y", srtOrd: "1", userDfnCd1: null, userDfnCd2: null, userDfnCd3: null },
-              { cd: "02", cdNm: "CREDIT", cdDesc: "CREDIT", useYn: "Y", srtOrd: "2", userDfnCd1: null, userDfnCd2: null, userDfnCd3: null },
-              { cd: "03", cdNm: "CASH/CREDIT", cdDesc: "CASH/CREDIT", useYn: "Y", srtOrd: "3", userDfnCd1: null, userDfnCd2: null, userDfnCd3: null },
-              { cd: "04", cdNm: "BANK CHECK", cdDesc: "BANK CHECK PAYMENT", useYn: "Y", srtOrd: "4", userDfnCd1: null, userDfnCd2: null, userDfnCd3: null },
-              { cd: "05", cdNm: "DEBIT&CREDIT CARD", cdDesc: "PAYMENT USING CARD", useYn: "Y", srtOrd: "5", userDfnCd1: null, userDfnCd2: null, userDfnCd3: null },
-              { cd: "06", cdNm: "MOBILE MONEY", cdDesc: "MOBILE MONEY", useYn: "Y", srtOrd: "6", userDfnCd1: null, userDfnCd2: null, userDfnCd3: null },
-              { cd: "07", cdNm: "OTHER", cdDesc: "OTHER", useYn: "Y", srtOrd: "7", userDfnCd1: null, userDfnCd2: null, userDfnCd3: null }
-            ]
-          }
-        ]
-      }
-    };
+    // Call the actual VSDC API
+    const vsdcResponse = await callVsdcApi("/code/selectCodes", "POST", req.body, req.headers.authorization?.split(" ")[1]);
     
-    return res.json(mockResponse);
+    if (vsdcResponse.success) {
+      return res.json(vsdcResponse.data);
+    } else {
+      return res.status(vsdcResponse.status || 500).json(vsdcResponse.error);
+    }
     
   } catch (error) {
     console.error("Code selection error:", error);
@@ -476,21 +362,14 @@ app.post("/api/vsdc/itemClass/selectItemsClass", verifyFirebaseToken, async (req
   try {
     const { tin, bhfId, lastReqDt } = req.body;
     
-    const mockResponse = {
-      resultCd: "000",
-      resultMsg: "It is succeeded",
-      resultDt: new Date().toISOString().replace(/[-:]/g, "").slice(0, 14),
-      data: {
-        itemClsList: [
-          { itemClsCd: "5059690800", itemClsNm: "Food Products", itemClsLvl: 1, taxTyCd: "B", mjtrTgYn: "Y", useYn: "Y" },
-          { itemClsCd: "5022110801", itemClsNm: "Beverages", itemClsLvl: 1, taxTyCd: "B", mjtrTgYn: "Y", useYn: "Y" },
-          { itemClsCd: "1110160600", itemClsNm: "Grains", itemClsLvl: 2, taxTyCd: "B", mjtrTgYn: "N", useYn: "Y" },
-          { itemClsCd: "1110170400", itemClsNm: "Vegetables", itemClsLvl: 2, taxTyCd: "A", mjtrTgYn: "N", useYn: "Y" }
-        ]
-      }
-    };
+    // Call the actual VSDC API
+    const vsdcResponse = await callVsdcApi("/itemClass/selectItemsClass", "POST", req.body, req.headers.authorization?.split(" ")[1]);
     
-    return res.json(mockResponse);
+    if (vsdcResponse.success) {
+      return res.json(vsdcResponse.data);
+    } else {
+      return res.status(vsdcResponse.status || 500).json(vsdcResponse.error);
+    }
     
   } catch (error) {
     console.error("Item class selection error:", error);
@@ -509,26 +388,14 @@ app.post("/api/vsdc/customers/selectCustomer", verifyFirebaseToken, async (req, 
   try {
     const { tin, bhfId, custmTin } = req.body;
     
-    const mockResponse = {
-      resultCd: "000",
-      resultMsg: "It is succeeded",
-      resultDt: new Date().toISOString().replace(/[-:]/g, "").slice(0, 14),
-      data: {
-        custList: [
-          {
-            tin: custmTin || "100600570",
-            taxprNm: "Customer Name",
-            taxprSttsCd: "A",
-            prvncNm: "KIGALI CITY",
-            dstrtNm: "KICUKIRO",
-            sctrNm: "KAGARAMA",
-            locDesc: "Kicukiro"
-          }
-        ]
-      }
-    };
+    // Call the actual VSDC API
+    const vsdcResponse = await callVsdcApi("/customers/selectCustomer", "POST", req.body, req.headers.authorization?.split(" ")[1]);
     
-    return res.json(mockResponse);
+    if (vsdcResponse.success) {
+      return res.json(vsdcResponse.data);
+    } else {
+      return res.status(vsdcResponse.status || 500).json(vsdcResponse.error);
+    }
     
   } catch (error) {
     console.error("Customer selection error:", error);
@@ -547,31 +414,14 @@ app.post("/api/vsdc/branches/selectBranches", verifyFirebaseToken, async (req, r
   try {
     const { tin, bhfId, lastReqDt } = req.body;
     
-    const mockResponse = {
-      resultCd: "000",
-      resultMsg: "It is succeeded",
-      resultDt: new Date().toISOString().replace(/[-:]/g, "").slice(0, 14),
-      data: {
-        bhfList: [
-          {
-            tin: tin,
-            bhfId: "00",
-            bhfNm: "Headquarter",
-            bhfSttsCd: "01",
-            prvncNm: "KIGALI CITY",
-            dstrtNm: "GASABO",
-            sctrNm: "KACYIRU",
-            locDesc: null,
-            mgrNm: "Manager Name",
-            mgrTelNo: "0789000000",
-            mgrEmail: "head@test.com",
-            hqYn: "Y"
-          }
-        ]
-      }
-    };
+    // Call the actual VSDC API
+    const vsdcResponse = await callVsdcApi("/branches/selectBranches", "POST", req.body, req.headers.authorization?.split(" ")[1]);
     
-    return res.json(mockResponse);
+    if (vsdcResponse.success) {
+      return res.json(vsdcResponse.data);
+    } else {
+      return res.status(vsdcResponse.status || 500).json(vsdcResponse.error);
+    }
     
   } catch (error) {
     console.error("Branch selection error:", error);
@@ -732,12 +582,52 @@ app.post("/api/items", verifyFirebaseToken, async (req, res) => {
       lastSyncAttempt: null
     }, { merge: true });
 
-    // In production, you would also call the actual VSDC API
-    // const vsdcResponse = await callVsdcApi("/items/saveItems", "POST", {
-    //   tin, bhfId, itemCd: finalItemCd, itemClsCd, itemTyCd, itemNm,
-    //   orgnNatCd, pkgUnitCd, qtyUnitCd, taxTyCd, dftPrc, isrcAplcbYn, useYn,
-    //   regrNm, regrId, modrNm, modrId
-    // });
+    // Call the actual VSDC API to save the item
+    const vsdcResponse = await callVsdcApi("/items/saveItems", "POST", {
+      tin,
+      bhfId: bhfId || "00",
+      itemCd: finalItemCd,
+      itemClsCd,
+      itemTyCd,
+      itemNm,
+      itemStdNm: itemStdNm || null,
+      orgnNatCd: orgnNatCd || "RW",
+      pkgUnitCd,
+      qtyUnitCd,
+      taxTyCd: taxTyCd || "B",
+      btchNo: btchNo || null,
+      bcd: bcd || null,
+      dftPrc: Number(dftPrc),
+      grpPrcL1: grpPrcL1 !== undefined && grpPrcL1 !== "" ? Number(grpPrcL1) : null,
+      grpPrcL2: grpPrcL2 !== undefined && grpPrcL2 !== "" ? Number(grpPrcL2) : null,
+      grpPrcL3: grpPrcL3 !== undefined && grpPrcL3 !== "" ? Number(grpPrcL3) : null,
+      grpPrcL4: grpPrcL4 !== undefined && grpPrcL4 !== "" ? Number(grpPrcL4) : null,
+      grpPrcL5: grpPrcL5 !== undefined && grpPrcL5 !== "" ? Number(grpPrcL5) : null,
+      addInfo: addInfo || null,
+      sftyQty: sftyQty !== undefined && sftyQty !== "" ? Number(sftyQty) : null,
+      isrcAplcbYn: isrcAplcbYn || "N",
+      useYn: useYn || "Y",
+      regrNm,
+      regrId,
+      modrNm,
+      modrId
+    }, req.headers.authorization?.split(" ")[1]);
+
+    // Update sync status
+    if (vsdcResponse.success) {
+      await vsdcItemRef.update({
+        vsdcSynced: true,
+        vsdcLastResult: vsdcResponse.data,
+        lastSyncAttempt: admin.firestore.FieldValue.serverTimestamp()
+      });
+    } else {
+      await vsdcItemRef.update({
+        vsdcSynced: false,
+        vsdcLastResult: vsdcResponse.error,
+        vsdcSyncAttempts: admin.firestore.FieldValue.increment(1),
+        lastSyncAttempt: admin.firestore.FieldValue.serverTimestamp()
+      });
+    }
 
     return res.json({
       resultCd: "000",
@@ -745,7 +635,8 @@ app.post("/api/items", verifyFirebaseToken, async (req, res) => {
       resultDt: new Date().toISOString().replace(/[-:]/g, "").slice(0, 14),
       data: {
         itemId: finalItemCd,
-        message: "Item saved successfully and ready for VSDC synchronization"
+        message: "Item saved successfully and synced to VSDC",
+        vsdcResponse: vsdcResponse.success ? vsdcResponse.data : null
       }
     });
 
@@ -765,47 +656,15 @@ app.post("/api/items", verifyFirebaseToken, async (req, res) => {
 app.post("/api/vsdc/items/selectItems", verifyFirebaseToken, async (req, res) => {
   try {
     const { tin, bhfId, lastReqDt } = req.body;
-    const schoolId = req.user.uid;
     
-    // Get items from Firestore
-    const inventoryRef = db.collectionGroup("inventory");
-    const snapshot = await inventoryRef.where("tin", "==", tin).get();
+    // Call the actual VSDC API
+    const vsdcResponse = await callVsdcApi("/items/selectItems", "POST", req.body, req.headers.authorization?.split(" ")[1]);
     
-    const itemList = [];
-    snapshot.forEach(doc => {
-      itemList.push({
-        tin: doc.data().tin,
-        itemCd: doc.id,
-        itemClsCd: doc.data().itemClsCd,
-        itemTyCd: doc.data().itemTyCd,
-        itemNm: doc.data().itemNm,
-        itemStdNm: doc.data().itemStdNm || null,
-        orgnNatCd: doc.data().orgnNatCd,
-        pkgUnitCd: doc.data().pkgUnitCd,
-        qtyUnitCd: doc.data().qtyUnitCd,
-        taxTyCd: doc.data().taxTyCd,
-        btchNo: doc.data().btchNo || null,
-        bcd: doc.data().bcd || null,
-        dftPrc: doc.data().dftPrc,
-        grpPrcL1: doc.data().grpPrcL1,
-        grpPrcL2: doc.data().grpPrcL2,
-        grpPrcL3: doc.data().grpPrcL3,
-        grpPrcL4: doc.data().grpPrcL4,
-        grpPrcL5: doc.data().grpPrcL5,
-        addInfo: doc.data().addInfo || null,
-        sftyQty: doc.data().sftyQty,
-        isrcAplcbYn: doc.data().isrcAplcbYn,
-        useYn: doc.data().useYn,
-        quantity: doc.data().quantity || 0
-      });
-    });
-    
-    return res.json({
-      resultCd: "000",
-      resultMsg: "It is succeeded",
-      resultDt: new Date().toISOString().replace(/[-:]/g, "").slice(0, 14),
-      data: { itemList }
-    });
+    if (vsdcResponse.success) {
+      return res.json(vsdcResponse.data);
+    } else {
+      return res.status(vsdcResponse.status || 500).json(vsdcResponse.error);
+    }
     
   } catch (error) {
     console.error("Item selection error:", error);
@@ -867,42 +726,23 @@ app.post("/api/vsdc/trnsSales/saveSales", verifyFirebaseToken, async (req, res) 
       });
     }
     
-    // Generate receipt data (as per spec response)
-    const rcptNo = Math.floor(Math.random() * 10000);
-    const intrlData = Buffer.from(`${tin}${invcNo}${Date.now()}`).toString('base64').substring(0, 30);
-    const rcptSign = Buffer.from(`${rcptNo}${tin}${Date.now()}`).toString('base64').substring(0, 16);
+    // Call the actual VSDC API
+    const vsdcResponse = await callVsdcApi("/trnsSales/saveSales", "POST", req.body, req.headers.authorization?.split(" ")[1]);
+    
+    if (!vsdcResponse.success) {
+      return res.status(vsdcResponse.status || 500).json(vsdcResponse.error);
+    }
     
     // Save sales transaction to Firestore
     const salesRef = db.collection("vsdc_sales").doc();
     await salesRef.set({
       ...salesData,
+      ...vsdcResponse.data,
       sellerUid,
-      rcptNo,
-      intrlData,
-      rcptSign,
       createdAt: admin.firestore.FieldValue.serverTimestamp()
     });
     
-    // Save individual items to inventory/sales collection
-    for (const item of itemList) {
-      // Update stock quantities (decrease)
-      // This would need to be implemented based on your inventory structure
-    }
-    
-    return res.json({
-      resultCd: "000",
-      resultMsg: "It is succeeded",
-      resultDt: new Date().toISOString().replace(/[-:]/g, "").slice(0, 14),
-      data: {
-        rcptNo: rcptNo,
-        intrlData: intrlData,
-        rcptSign: rcptSign,
-        totRcptNo: rcptNo,
-        vsdcRcptPbctDate: new Date().toISOString().replace(/[-:]/g, "").slice(0, 14),
-        sdcId: "SDC010000005",
-        mrcNo: "WIS01006230"
-      }
-    });
+    return res.json(vsdcResponse.data);
     
   } catch (error) {
     console.error("Save sales error:", error);
@@ -947,28 +787,22 @@ app.post("/api/vsdc/stock/saveStockItems", verifyFirebaseToken, async (req, res)
       });
     }
     
-    // Update inventory quantities based on stock movement
-    const direction = CODE_DEFINITIONS.stockInOutType[sarTyCd]?.direction;
+    // Call the actual VSDC API
+    const vsdcResponse = await callVsdcApi("/stock/saveStockItems", "POST", req.body, req.headers.authorization?.split(" ")[1]);
     
-    for (const item of itemList) {
-      // Find the inventory item and update quantity
-      // This would need to query your inventory collection
-      // and adjust based on direction (IN or OUT)
+    if (!vsdcResponse.success) {
+      return res.status(vsdcResponse.status || 500).json(vsdcResponse.error);
     }
     
     // Save stock movement record
     const stockRef = db.collection("vsdc_stock_movements").doc();
     await stockRef.set({
       ...stockData,
+      vsdcResponse: vsdcResponse.data,
       createdAt: admin.firestore.FieldValue.serverTimestamp()
     });
     
-    return res.json({
-      resultCd: "000",
-      resultMsg: "It is succeeded",
-      resultDt: new Date().toISOString().replace(/[-:]/g, "").slice(0, 14),
-      data: null
-    });
+    return res.json(vsdcResponse.data);
     
   } catch (error) {
     console.error("Save stock error:", error);
@@ -995,15 +829,14 @@ app.post("/api/vsdc/stockMaster/saveStockMaster", verifyFirebaseToken, async (re
       });
     }
     
-    // Update the item's quantity in inventory
-    // This would require finding the item across all paths
+    // Call the actual VSDC API
+    const vsdcResponse = await callVsdcApi("/stockMaster/saveStockMaster", "POST", req.body, req.headers.authorization?.split(" ")[1]);
     
-    return res.json({
-      resultCd: "000",
-      resultMsg: "It is succeeded",
-      resultDt: new Date().toISOString().replace(/[-:]/g, "").slice(0, 14),
-      data: null
-    });
+    if (vsdcResponse.success) {
+      return res.json(vsdcResponse.data);
+    } else {
+      return res.status(vsdcResponse.status || 500).json(vsdcResponse.error);
+    }
     
   } catch (error) {
     console.error("Save stock master error:", error);
@@ -1066,7 +899,7 @@ app.post("/api/vsdc/sync-item/:itemCd", verifyFirebaseToken, async (req, res) =>
       regrId: itemData.regrId,
       modrNm: itemData.modrNm,
       modrId: itemData.modrId
-    });
+    }, req.headers.authorization?.split(" ")[1]);
     
     // Update sync status
     await itemRef.update({
@@ -1163,8 +996,7 @@ app.get("/api/vsdc/last-invoice/:tin", verifyFirebaseToken, async (req, res) => 
     
     // Query Firestore for the last invoice for this seller
     const salesRef = db.collection("vsdc_sales");
-    const q = query(salesRef, where("tin", "==", tin), orderBy("invcNo", "desc"), limit(1));
-    const snapshot = await getDocs(q);
+    const snapshot = await salesRef.where("tin", "==", tin).orderBy("invcNo", "desc").limit(1).get();
     
     let lastInvoiceNo = 0;
     let lastReceiptNo = 0;
